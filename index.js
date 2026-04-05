@@ -4,6 +4,9 @@ const csv = require("csv-parser");
 const cors = require("cors");
 const AdmZip = require("adm-zip");
 
+// ✅ Load player mapping
+const playersMap = require("./players.json");
+
 const app = express();
 app.use(cors());
 
@@ -21,7 +24,7 @@ try {
 }
 
 // =============================
-// ✅ STEP 2: CHECK FILE EXISTS
+// ✅ STEP 2: CHECK CSV FILE
 // =============================
 const CSV_FILE = "./IPL.csv";
 
@@ -75,16 +78,20 @@ fs.createReadStream(CSV_FILE)
   });
 
 // =============================
-// ✅ STEP 4: API ENDPOINT
+// ✅ STEP 4: MATCHUP API
 // =============================
 app.get("/matchup", (req, res) => {
-  const { batsman, bowler } = req.query;
+  let { batsman, bowler } = req.query;
 
   if (!batsman || !bowler) {
     return res.json({
       error: "Please provide batsman and bowler"
     });
   }
+
+  // ✅ Convert full name → short name
+  batsman = playersMap[batsman] || batsman;
+  bowler = playersMap[bowler] || bowler;
 
   const key = `${batsman}_${bowler}`;
   const data = matchups[key];
@@ -112,7 +119,22 @@ app.get("/matchup", (req, res) => {
 });
 
 // =============================
-// ✅ STEP 5: SERVER START
+// ✅ STEP 5: GET ALL PLAYERS (DEBUG)
+// =============================
+app.get("/players", (req, res) => {
+  const players = new Set();
+
+  Object.keys(matchups).forEach(key => {
+    const [batsman, bowler] = key.split("_");
+    players.add(batsman);
+    players.add(bowler);
+  });
+
+  res.json(Array.from(players));
+});
+
+// =============================
+// ✅ STEP 6: SERVER START
 // =============================
 const PORT = process.env.PORT || 3000;
 
