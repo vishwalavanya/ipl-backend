@@ -4,7 +4,7 @@ const csv = require("csv-parser");
 const cors = require("cors");
 const AdmZip = require("adm-zip");
 
-// ✅ Load player mapping
+// ✅ Load mapping
 const playersMap = require("./players.json");
 
 const app = express();
@@ -24,7 +24,7 @@ try {
 }
 
 // =============================
-// ✅ STEP 2: CHECK CSV FILE
+// ✅ STEP 2: CHECK CSV
 // =============================
 const CSV_FILE = "./IPL.csv";
 
@@ -35,7 +35,7 @@ if (!fs.existsSync(CSV_FILE)) {
 }
 
 // =============================
-// ✅ STEP 3: BUILD MATCHUP DB
+// ✅ STEP 3: BUILD MATCHUPS
 // =============================
 fs.createReadStream(CSV_FILE)
   .pipe(csv())
@@ -78,7 +78,35 @@ fs.createReadStream(CSV_FILE)
   });
 
 // =============================
-// ✅ STEP 4: MATCHUP API
+// ✅ STEP 4: NAME CONVERSION (IMPORTANT)
+// =============================
+function convertName(name) {
+  if (!name) return name;
+
+  // ✅ 1. Exact mapping
+  if (playersMap[name]) return playersMap[name];
+
+  // ✅ 2. Remove (2) like names
+  const cleanName = name.replace(/\(\d+\)/, "").trim();
+  if (playersMap[cleanName]) return playersMap[cleanName];
+
+  // ✅ 3. Fallback: last name match
+  const lastName = cleanName.split(" ").slice(-1)[0].toLowerCase();
+
+  for (let key in matchups) {
+    const [batsman] = key.split("_");
+
+    if (batsman.toLowerCase().includes(lastName)) {
+      return batsman;
+    }
+  }
+
+  // ❗ If nothing found, return original
+  return name;
+}
+
+// =============================
+// ✅ STEP 5: MATCHUP API
 // =============================
 app.get("/matchup", (req, res) => {
   let { batsman, bowler } = req.query;
@@ -89,9 +117,9 @@ app.get("/matchup", (req, res) => {
     });
   }
 
-  // ✅ Convert full name → short name
-  batsman = playersMap[batsman] || batsman;
-  bowler = playersMap[bowler] || bowler;
+  // ✅ Convert names
+  batsman = convertName(batsman);
+  bowler = convertName(bowler);
 
   const key = `${batsman}_${bowler}`;
   const data = matchups[key];
@@ -119,7 +147,7 @@ app.get("/matchup", (req, res) => {
 });
 
 // =============================
-// ✅ STEP 5: GET ALL PLAYERS (DEBUG)
+// ✅ STEP 6: DEBUG PLAYERS
 // =============================
 app.get("/players", (req, res) => {
   const players = new Set();
@@ -134,7 +162,7 @@ app.get("/players", (req, res) => {
 });
 
 // =============================
-// ✅ STEP 6: SERVER START
+// ✅ STEP 7: START SERVER
 // =============================
 const PORT = process.env.PORT || 3000;
 
